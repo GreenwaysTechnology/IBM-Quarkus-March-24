@@ -1,0 +1,93 @@
+				Quarkus Datasources
+.....................................................................................
+
+
+Quarkus uses ORM implementation via JPA With Hibernate and Panche
+
+Microservice Data Management Pattern:
+
+1.Shared Database Pattern
+2.Database Per Service Pattern
+
+
+1.Shared Database Pattern
+
+  Microservice apps are independant but database is not independant, that means which has been shared among many services.
+  
+  Every database apps requires "ACID" transaction
+
+  ACID is an acronym that refers to the set of 4 key properties that define a transaction: Atomicity, Consistency, Isolation, and Durability. If a database operation has these ACID properties, it can be called an ACID transaction, and data storage systems that apply these operations are called transactional systems.
+
+Transactions
+  Running multiple database quries step by step, grouping many database quries into one unit.
+ In order to achive one single biz work flow, we need to update many tables at time
+ if any one table update or delete or insert fails, we should not update/insert/delete other tables
+ 
+ begin
+    update order
+    insert inventory
+    delete sales
+ end 
+
+When we build microservices, we deal with database, database operations need to be enabled transaction.
+
+Advantages of shared database:
+..............................
+
+1.Transaction is very easy and simple to implement
+2.A single database is simpler to operate
+
+Drawbacks:
+  Development time coupling - a developer working on, for example, the OrderService will need to coordinate schema changes with the developers of other services that access the same tables. This coupling and additional coordination will slow down development.
+
+Runtime coupling - because all services access the same database they can potentially interfere with one another. For example, if long running CustomerService transaction holds a lock on the ORDER table then the OrderService will be blocked.
+
+Single database might not satisfy the data storage and access requirements of all services.
+
+2.Database Per Service Pattern
+...............................
+  Each Service is going to have its own database and tables
+
+Advantage:
+1. loose coupling
+2  You can have any database your own choice
+
+Drawbacks
+1.If services need to co-ordinate each other in order to enable biz work flow-
+  Transactions now are very hard.....
+
+Quarkus enables Database per Service pattern by default....
+
+application.properties
+
+quarkus.datasource."ServiceName".dbProperties=value
+
+eg:
+
+without service names
+quarkus.datasource.db-kind=h2
+quarkus.datasource.username=username-default
+quarkus.datasource.jdbc.url=jdbc:h2:mem:default
+quarkus.datasource.jdbc.max-size=13
+
+With Service Names
+
+quarkus.datasource.users.db-kind=h2
+quarkus.datasource.users.username=username1
+quarkus.datasource.users.jdbc.url=jdbc:h2:mem:users
+quarkus.datasource.users.jdbc.max-size=11
+
+quarkus.datasource.inventory.db-kind=h2
+quarkus.datasource.inventory.username=username2
+quarkus.datasource.inventory.jdbc.url=jdbc:h2:mem:inventory
+quarkus.datasource.inventory.jdbc.max-size=12
+
+quarkus.datasource.customers.db-kind=postgresql 
+quarkus.datasource.customers.username=<your username>
+quarkus.datasource.customers.password=<your password>
+quarkus.datasource.customers.jdbc.url=jdbc:postgresql://localhost:5432/hibernate_orm_test
+quarkus.datasource.customers.jdbc.max-size=16
+
+
+
+
