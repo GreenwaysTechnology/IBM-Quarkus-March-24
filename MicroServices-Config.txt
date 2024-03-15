@@ -385,6 +385,144 @@ Flow
 	  ConfigProperty(name = "greeting.message", defaultValue = "Default Message")
 			  |
 			   default value to be picked up
+.....................................................................................
+			Advanced Config sources
+.....................................................................................
+
+1.YAML
+2.Third party configuration stores
+  -Consul
+  -Spring cloud config
+
+1.YAML config
+  Yaml is very popular format in dev ops env.
+  Kubernets and docker relies heavily on the YAML format to write various resources   descriptions
+
+
+Enable YAML Configuration:
+
+quarkus ext add config-yaml
+
+remove application.properties
+add
+application.yml
+
+greeting:
+  message: "Hello YAML!"
+
+
+....................................................................................
+			   External Configuration Infrastructures
+....................................................................................
+
+As of now we have discussed application configuration within application itself.
+
+In case of microservices , we need to store "centeralized config information" which is used by many microservices- Distributed Configurations
+
+There are many config sources available
+
+1.HashiCorp valut 
+2.Consul configurations
+3.Spring Cloud Config
+etc...
+
+
+Steps:
+1.install consul.
+ You can install directly or via docker.
+
+docker run --rm --name consul -p 8500:8500 -p 8501:8501 consul:1.7 agent -dev -ui -client=0.0.0.0 -bind=0.0.0.0 --https-port=8501
+
+2.Quarkus consul dependency
+ quarkus ext add config-consul
+
+3.application.properties 
+ #consul server configuration
+quarkus.application.name=consul-test
+quarkus.consul-config.enabled=true 
+quarkus.consul-config.properties-value-keys=config/${quarkus.application.name}
+
+4.Create KV Store in the consul server
+
+Key/Value
+
+config/consul-test:Property=value
+
+package org.acme;
+
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+@Path("/hello")
+public class GreetingResource {
+
+    @ConfigProperty(name="greeting.message",defaultValue = "Hello")
+    String message;
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public String hello() {
+        return message;
+    }
+}
+.....................................................................................
+			  Profiles
+.....................................................................................
+
+Envinronment based configuration.
+
+1.Production ENV
+2.Development Env
+3.Testing Env
+4.Custom Env
+  -Staging
+  -Pipeline
+
+What if i want to supply the properties based on env.
+
+In The Property file
+
+%dev.greeting.message=Hello from development
+%prod.greeting.message=Hello from development
+
+What if i want to set port in dev 
+
+%dev.quarkus.http.port=8080
+%prod.quarkus.http.port=9999
+
+package org.acme;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
+@Path("/hello")
+public class GreetingResource {
+
+    @ConfigProperty(name="greeting.message",defaultValue = "Hello")
+    String message;
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public String hello() {
+        return message;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 
