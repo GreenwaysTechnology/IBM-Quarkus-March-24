@@ -861,5 +861,149 @@ public class EmployeeResource {
         return Response.status(204).build();
     }
 }
+.....................................................................................
+			 Non Blocking /Reactive Hibernate orm panche
+.....................................................................................
 
+Step:
+1.create project with following dependency.
+
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-resteasy-reactive-jackson</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-hibernate-reactive-panache</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-resteasy-reactive</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-reactive-pg-client</artifactId>
+    </dependency>
+
+2.resources/import.sql
+INSERT INTO CUSTOMER(id,name,city) VALUES (1, 'Subramanian','Coimbatore');
+INSERT INTO CUSTOMER(id,name,city) VALUES (2, 'Murugan','Coimbatore');
+INSERT INTO CUSTOMER(id,name,city) VALUES (3, 'Geetha','Chennai');
+ALTER SEQUENCE customer_seq RESTART WITH 4;
+
+INSERT INTO EMPLOYEE(id,name,city) VALUES (1, 'Subramanian','Coimbatore');
+INSERT INTO EMPLOYEE(id,name,city) VALUES (2, 'Murugan','Coimbatore');
+INSERT INTO EMPLOYEE(id,name,city) VALUES (3, 'Geetha','Chennai');
+ALTER SEQUENCE employee_seq RESTART WITH 4;
+
+3.application.properties
+
+#This should be enabled only in dev mode
+%dev.quarkus.datasource.devservices.enabled=true
+
+#Hibernate configuration
+quarkus.hibernate-orm.database.generation=drop-and-create
+quarkus.hibernate-orm.log.sql=true
+quarkus.hibernate-orm.sql-load-script=import.sql
+....................................................................................
+			Active Record Pattern
+....................................................................................
+
+Declare Entity:
+package com.ibm.reative.data.activerecord;
+
+import io.quarkus.hibernate.reactive.panache.PanacheEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+
+@Entity
+public class Customer extends PanacheEntity {
+    @Column(name = "name")
+    public String name;
+    @Column(name = "city")
+    public String city;
+}
+package com.ibm.reative.data.activerecord.resources;
+
+import com.ibm.reative.data.activerecord.Customer;
+import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+
+import java.util.List;
+
+@Path("customers")
+public class CustomerResource {
+
+    @GET
+    public Uni<List<Customer>> findAll() {
+        return Customer.listAll();
+    }
+}
+
+findBy Id:
+package com.ibm.reative.data.activerecord.resources;
+
+import com.ibm.reative.data.activerecord.Customer;
+import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+
+import java.util.List;
+
+@Path("customers")
+public class CustomerResource {
+
+    @GET
+    public Uni<List<Customer>> findAll() {
+        return Customer.listAll();
+    }
+
+    @Path("{id}")
+    @GET
+    public Uni<Response> findById(@PathParam("id") Long id) {
+        return Customer.findById(id).onItem().transform(entity -> {
+            if (entity == null) {
+                throw new WebApplicationException("Entity not Found");
+            }
+            return Response.ok(entity).build();
+        });
+    }
+}
+
+
+Active Pattern Post with Transaction:
+....................................
+
+Note :
+ We cant use any annotations...
+
+Panche.withTransaction
+
+package com.ibm.reative.data.activerecord.resources;
+
+import com.ibm.reative.data.activerecord.Customer;
+import io.quarkus.hibernate.reactive.panache.Panache;
+import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Response;
+
+import java.util.List;
+
+@Path("customers")
+public class CustomerResource {
+
+    @POST
+    public Uni<Response> create(Customer customer) {
+        //error handler
+        if (customer == null || customer.name == null) {
+            throw new WebApplicationException("Customer Not Found");
+        }
+        return Panache.withTransaction(customer::persist)
+                .replaceWith(Response.ok(customer).status(Response.Status.CREATED).build());
+    }
+}
 
