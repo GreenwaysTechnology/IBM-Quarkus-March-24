@@ -8,11 +8,11 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 @Path("hello")
-@RegisterRestClient
+//@RegisterRestClient
+@RegisterRestClient(configKey = "hello-api")
 public interface HelloRestClientService {
     //declare callee rest api specification
     @GET
-    @Path("{id}")
     String sayHello();
 //    @POST
 //    Uni<Response> save(Book book);

@@ -203,6 +203,126 @@ Tech Stack:
 1.Reactive Hibernate Orm Panche - Both Reactive version- You can select Active Record or DAO pattern
 
 
+....................................................................................
+		  MicroProfile Rest Client Refactored Configuration
+.....................................................................................
+
+application.properties
+com.ibm.rest.client.HelloRestClientService/mp-rest/url=http://localhost:9000
+com.ibm.rest.client.HelloRestClientService/mp-rest/scope=javax.inject.Singleton
+
+Here we have mentioned full package name with interface name, this can be simplified.
+
+package com.ibm.rest.client;
+
+import io.smallrye.mutiny.Uni;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+
+@Path("hello")
+//@RegisterRestClient
+@RegisterRestClient(configKey = "hello-api")
+public interface HelloRestClientService {
+    //declare callee rest api specification
+    @GET
+    @Path("{id}")
+    String sayHello();
+//    @POST
+//    Uni<Response> save(Book book);
+}
+
+
+application.properties
+#com.ibm.rest.client.HelloRestClientService/mp-rest/url=http://localhost:9000
+#com.ibm.rest.client.HelloRestClientService/mp-rest/scope=javax.inject.Singleton
+hello-api/mp-rest/url=http://localhost:9000
+hello-api/mp-rest/scope=javax.inject.Singleton
+....................................................................................
+			 Vertx Web Client-By default Reactive
+..................................................................................
+
+Advantages of Vertx-WebClient over MicroProfile Rest Client:
+............................................................
+
+1.Vertx WebClient by default reactive.
+2.YOu dont need any extra interfaces and application.properties configuration.
+3.You can use WebClient directly.
+
+How to use VertxWebClient?
+
+In the caller app pom.xml
+
+    <dependency>
+      <groupId>io.smallrye.reactive</groupId>
+      <artifactId>smallrye-mutiny-vertx-web-client</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-vertx</artifactId>
+    </dependency>
+
+package org.acme;
+
+import com.ibm.rest.client.HelloRestClientService;
+import io.smallrye.mutiny.Uni;
+import io.vertx.ext.web.client.WebClientOptions;
+import io.vertx.mutiny.core.Vertx;
+import io.vertx.mutiny.ext.web.client.HttpResponse;
+import io.vertx.mutiny.ext.web.client.WebClient;
+import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+
+@Path("/welcome")
+public class GreetingResource {
+
+    @Inject
+    @RestClient
+    HelloRestClientService helloRestClientService;
+
+    //Get Vertx runtime
+    @Inject
+    Vertx vertx;
+
+    //create WebClient object
+    WebClient webClient;
+
+    //life cylce method
+    @PostConstruct
+    public void init() {
+        webClient = WebClient.create(vertx,
+                new WebClientOptions().setDefaultHost("localhost").setDefaultPort(9000));
+    }
+
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public String hello() {
+        return helloRestClientService.sayHello();
+    }
+
+    //make api call using vertx webclient
+
+    @GET
+    @Path("webclient")
+    public Uni<String> sayHello() {
+        return webClient.get("/hello").send().onItem().transform(HttpResponse::bodyAsString);
+    }
+
+
+}
+
+
+
+
+
+
 
 
 
