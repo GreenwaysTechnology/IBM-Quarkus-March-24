@@ -371,14 +371,72 @@ public class NotificationService {
     }
 }
 .....................................................................................
+		  Messaging Patterns and Event Driven Microservices
+.....................................................................................
+
+Event Driven Microservices are very usefull in many use cases.
+
+1.Distributed Database Transactions.
+
+Messaging Patterns Lead other Event Driven Design patterns
+
+1.Event Sourcing and Domain Event:
+..................................
+
+Context:
+A service command typically needs to create/update/delete aggregates in the database and send messages/events to a message broker. 
+
+Service Command:
+  Service methods 
+
+Service Methods:
+
+1.Read - SELECT
+2.Write- INSERT,UPDATE,DELETE
+
+aggregates:
+ Object - Entity
+
+For Eg:
+ You have OrderService, which has commands
+  saveOrder
+  updateOrder 
+  deleteOrder
+These commands will perform database operations.
+
+Once database operations are over, we need to send/publish event into "Message Brokers (Kafka,RabbitMQ)"
+
+Domain Event:
+  It is similar to Event Sourcing Design pattern only but it depends on the "Domain Driven Design"
+
+......................................................................................		   Domain Event and Event Sourcing Design Pattern
+			      Implementation
+		   (SmallRye Reactive Messaging Specification)
+.....................................................................................
+
+In spring we have Spring Cloud Stream..
+
+SmallRye Reactive Messaging Specification:
+..........................................
+SmallRye Reactive Messaging is a framework for building event-driven, data streaming, and event-sourcing applications using CDI.
+
+ It lets your application interaction using various messaging technologies such as Apache Kafka, AMQP or MQTT. The framework provides a flexible programming model bridging CDI and event-driven.
 
 
+Our Implementation Could be Apache Kafka:
+..........................................
+
+Apache Kafka is a popular open-source distributed event streaming platform. It is used commonly for high-performance data pipelines, streaming analytics, data integration, and mission-critical applications. Similar to a message queue, or an enterprise messaging platform, it lets you:
 
 
+1.publish (write) and subscribe to (read) streams of events, called records.
 
+2.store streams of records durably and reliably inside topics.
 
+3.process streams of records as they occur or retrospectively.
 
+Core Concepts of SmallRye Messaging:
+....................................
 
-
-
-
+1.Message:
+..........
