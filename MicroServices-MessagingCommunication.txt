@@ -440,3 +440,329 @@ Core Concepts of SmallRye Messaging:
 
 1.Message:
 ..........
+Applications send and receive messages. A message wraps a payload and can be extended with some metadata. With the Kafka connector, a message corresponds to a Kafka record.
+
+
+2.Channels:
+ Messages transit on channels. Application components connect to channels to publish and consume messages. The Kafka connector maps channels to Kafka topics.
+
+3.Connectors:
+  Channels are connected to message backends using connectors.
+Connectors are configured to map incoming messages to a specific channel (consumed by the application) and collect outgoing messages sent to a specific channel. Each connector is dedicated to a specific messaging technology. For example, the connector dealing with Kafka is named smallrye-kafka.
+
+Annotations;
+
+org.eclipse.microprofile.reactive.messaging.Incoming - indicates the consumed channel
+
+org.eclipse.microprofile.reactive.messaging.Outgoing - indicates the populated channel
+.....................................................................................
+Qurakus Kafka Configuration:
+...........................
+application.properties
+
+%prod.kafka.bootstrap.servers=kafka:9092 
+mp.messaging.incoming.prices.connector=smallrye-kafka 
+	
+
+mp.messaging.incoming.$channel.connector=smallrye-kafka 
+
+if you are using dev services for kakfa , the above configuration is not necessary.
+...................................................................................
+			  Receiving Messages from the Kafka
+...................................................................................
+
+
+1.Listener Pattern:
+ Just declare method inside class , declare that method as listener... and read messages.
+
+
+import org.eclipse.microprofile.reactive.messaging.Incoming;
+
+import jakarta.enterprise.context.ApplicationScoped;
+
+@ApplicationScoped
+public class PriceConsumer {
+
+    @Incoming("prices")
+    public void consume(double price) {
+        // process your price.
+    }
+
+}
+
+Different ways of consuming messages:
+.....................................
+
+@Incoming("prices")
+public CompletionStage<Void> consume(Message<Double> msg) {
+    // access record metadata
+    var metadata = msg.getMetadata(IncomingKafkaRecordMetadata.class).orElseThrow();
+    // process the message payload.
+    double price = msg.getPayload();
+    // Acknowledge the incoming message (commit the offset)
+    return msg.ack();
+}
+Kafka stores data as records:
+if you want to access Kafka Records directly...
+
+@Incoming("prices")
+public void consume(ConsumerRecord<String, Double> record) {
+    String key = record.key(); // Can be `null` if the incoming record has no key
+    String value = record.value(); // Can be `null` if the incoming record has no value
+    String topic = record.topic();
+    int partition = record.partition();
+    // ...
+}
+
+or 
+
+@Incoming("prices")
+public void consume(ConsumerRecord<String, Double> record) {
+    String key = record.key(); // Can be `null` if the incoming record has no key
+    String value = record.value(); // Can be `null` if the incoming record has no value
+    String topic = record.topic();
+    int partition = record.partition();
+    // ...
+}
+
+2.Dependency Injection Pattern:
+
+ Channels can be injected into class and we can read messages...
+
+import io.smallrye.mutiny.Multi;
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import org.jboss.resteasy.reactive.RestStreamElementType;
+
+@Path("/prices")
+public class PriceResource {
+
+    @Inject
+    @Channel("prices")
+    Multi<Double> prices;
+
+    @GET
+    @RestStreamElementType(MediaType.TEXT_PLAIN)
+    public Multi<Double> stream() {
+        return prices;
+    }
+}
+
+@Inject @Channel("prices") Multi<Double> streamOfPayloads;
+
+@Inject @Channel("prices") Multi<Message<Double>> streamOfMessages;
+
+@Inject @Channel("prices") Publisher<Double> publisherOfPayloads;
+
+@Inject @Channel("prices") Publisher<Message<Double>> publisherOfMessages;
+.....................................................................................
+			 Sending Messages To Kafka
+.....................................................................................
+
+Configuration :
+
+%prod.kafka.bootstrap.servers=kafka:9092 
+mp.messaging.outgoing.prices-out.connector=smallrye-kafka 
+mp.messaging.outgoing.prices-out.topic=prices 
+
+prices-out - channel Name where we publish Records/Messages.
+
+How to map out going channal.
+
+import io.smallrye.mutiny.Multi;
+import org.eclipse.microprofile.reactive.messaging.Outgoing;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import java.time.Duration;
+import java.util.Random;
+
+@ApplicationScoped
+public class KafkaPriceProducer {
+
+    private final Random random = new Random();
+
+    @Outgoing("prices-out")
+    public Multi<Double> generate() {
+        // Build an infinite stream of random prices
+        // It emits a price every second
+        return Multi.createFrom().ticks().every(Duration.ofSeconds(1))
+            .map(x -> random.nextDouble());
+    }
+
+}
+
+Note:
+  You should not call methods annotated with @Incoming and @Outgoing directly from   your   code.
+
+Note that the generate method returns a Multi<Double>, which implements the Reactive Streams Publisher interface. This publisher will be used by the framework to generate messages and send them to the configured Kafka topic.
+
+Different Syntax:
+@Outgoing("out")
+public Multi<Record<String, Double>> generate() {
+    return Multi.createFrom().ticks().every(Duration.ofSeconds(1))
+        .map(x -> Record.of("my-key", random.nextDouble()));
+}
+
+@Outgoing("generated-price")
+public Multi<Message<Double>> generate() {
+    return Multi.createFrom().ticks().every(Duration.ofSeconds(1))
+            .map(x -> Message.of(random.nextDouble())
+                    .addMetadata(OutgoingKafkaRecordMetadata.<String>builder()
+                            .withKey("my-key")
+                            .withTopic("my-key-prices")
+                            .withHeaders(new RecordHeaders().add("my-header", "value".getBytes()))
+                            .build()));
+}
+...................................................................................
+			How to push messages from the Rest api
+....................................................................................
+
+@Emitter
+Sending messages with @Emitter:
+
+Sometimes, you need to have an imperative way of sending messages.
+
+For example, if you need to send a message to a stream when receiving a POST request inside a REST endpoint. In this case, you cannot use @Outgoing because your method has parameters.
+
+For this, you can use an Emitter.
+
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.eclipse.microprofile.reactive.messaging.Emitter;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+
+@Path("/prices")
+public class PriceResource {
+
+    @Inject
+    @Channel("price-create")
+    Emitter<Double> priceEmitter;
+
+    @POST
+    @Consumes(MediaType.TEXT_PLAIN)
+    public void addPrice(Double price) {
+        CompletionStage<Void> ack = priceEmitter.send(price);
+    }
+}
+....................................................................................
+
+How to send Message with ack?
+
+import org.eclipse.microprofile.reactive.messaging.Channel;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+
+import io.smallrye.reactive.messaging.MutinyEmitter;
+
+@Path("/prices")
+public class PriceResource {
+
+    @Inject
+    @Channel("price-create")
+    MutinyEmitter<Double> priceEmitter;
+
+    @POST
+    @Consumes(MediaType.TEXT_PLAIN)
+    public Uni<String> addPrice(Double price) {
+        return quoteRequestEmitter.send(price)
+                .map(x -> "ok")
+                .onFailure().recoverWithItem("ko");
+    }
+}
+....................................................................................
+
+Implmentation:
+
+YOu can use kafka as dev service or You can use separate kafka as well.
+
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-reactive-messaging</artifactId>
+    </dependency>
+   <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-reactive-messaging-kafka</artifactId>
+    </dependency>
+
+
+application.properties
+mp.messaging.incoming.words-in.topic=words
+mp.messaging.outgoing.words-out.topic=words
+mp.messaging.incoming.words-in.auto.offset.reset=earliest
+#
+mp.messaging.incoming.prices-in.topic=prices
+mp.messaging.outgoing.prices-out.topic=prices
+mp.messaging.incoming.prices-in.auto.offset.reset=earliest
+mp.messaging.outgoing.prices-out.merge=true
+
+package org.acme;
+
+import io.smallrye.mutiny.Multi;
+import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.reactive.messaging.Incoming;
+import org.eclipse.microprofile.reactive.messaging.Outgoing;
+
+import java.time.Duration;
+import java.util.Random;
+
+@ApplicationScoped
+public class PriceConsumer {
+
+    private final Random random = new Random();
+
+    @Incoming("prices-in")
+    public void consume(double price) {
+        System.out.println("Got From Kafka " + price);
+    }
+
+    //publish prices every
+    @Outgoing("prices-out")
+    public Multi<Double> generate() {
+        // Build an infinite stream of random prices
+        // It emits a price every second
+        return Multi.createFrom().ticks().every(Duration.ofSeconds(1))
+                .map(x -> random.nextDouble());
+    }
+
+}
+package org.acme;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.reactive.messaging.Channel;
+import org.eclipse.microprofile.reactive.messaging.Emitter;
+
+import javax.print.attribute.standard.Media;
+import java.util.concurrent.CompletionStage;
+
+@Path("prices")
+public class PriceResource {
+
+    @Inject
+    @Channel("prices-out")
+    Emitter<Double> priceEmiter;
+
+    @POST
+    @Consumes(MediaType.TEXT_PLAIN)
+    public String addPrice(Double price) {
+        CompletionStage<Void> ack = priceEmiter.send(price);
+        return "Published";
+    }
+}
+.....................................................................................
+
