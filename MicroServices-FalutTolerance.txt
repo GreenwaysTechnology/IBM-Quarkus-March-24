@@ -1,0 +1,38 @@
+		Microservice communications and falut Tolerance
+.....................................................................................
+
+Microservices are independant applications, which are running separate process..
+When services are communicating there is possiblity services may not be available, or services may be down.
+
+Caller services need to handle such failures in gracefull way, thats where Falut Tolerance Design patterns come into picture.
+
+The Communication with external systems are inherently unreliable.
+
+This increases demand of reslience of applications.
+
+How to handle Reslience?
+
+Eclipse MicroProfile Fault Tolerance specification provides ways to handle failures.
+
+Fault Tolerance provides developers with the following strategies for dealing with failure:
+
+Timeout: Define a maximum duration for execution
+
+Retry: Attempt execution again if it fails
+
+Bulkhead: Limit concurrent execution so that failures in that area can’t overload the whole system
+
+CircuitBreaker: Automatically fail fast when execution repeatedly fails
+
+Fallback: Provide an alternative solution when execution fails
+ 
+SmallRye Provides implementation via annotations.
+
+Quarkus uses that implementation.
+
+@Timeout - fail if the invocation takes too long
+@Rety -  Retry several times incase of a failure
+@CircuitBreaker- Prvent Invocations if previous invocations failed too often
+@BulkHead - Limit Concurrent invocations.
+@Fallback -Provides alernate result incase of any failure.
+
