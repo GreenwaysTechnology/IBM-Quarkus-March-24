@@ -1,0 +1,80 @@
+Apache Kafka (or Kafka) is a distributed event store and stream-processing platform for storing, consuming, and processing data streams.
+Quarkus integrates perfectly with reactive applications that use Apache Kafka for event processing.
+Quarkus Dev Services provides you with an automatic way to boot up a Kafka cluster to test your application.
+Apache Kafka can replace messaging systems like JMS, especially when you need real-time stream processing.
+
+
+What Is and Why Apache Kafka?
+How data is processed/consumed nowadays is different from how it was previously practiced. In the past, data was stored in a database and it was batch processed to get some analytics.
+
+Although this approach is correct, more modern platforms let you process data in real-time as data comes to the system.
+
+Apache Kafka (or Kafka) is a distributed event store and stream-processing platform for storing, consuming, and processing data streams.
+
+
+There are five essential concepts in Kafka to understand how it works:
+
+Event (or message): An event is a timestamped key-value pair representing the data stored in the system to be processed. From the Kafka point of view, it is just a chunk of bytes.
+
+Partition: A partition is the place where events are produced and consumed. In a partition, the order of the events is guaranteed.
+
+Topic: A topic is composed of one or more partitions. The topic is the unit of work that developers work with either to consume or produce events.
+
+Consumer: A consumer subscribes to a topic and is notified every time an event is published into a topic.
+
+Producer: A producer publishes an event into a topic (actually one of the partitions belonging to the topic).
+
+One of the key aspects of Apache Kafka is that it was created with scalability and fault-tolerant in mind, making it appropriate for high-performance applications. Kafka can be considered a replacement for some conventional messaging systems such as Java Message Service (JMS) and Advanced Message Queuing Protocol (AMQP).
+
+Apache Kafka has integrations with most of the languages used these days, but in this article, we’ll cover its integration with Java, specifically to the Quarkus Java stack.
+
+
+How to Integrate Kafka in Quarkus
+
+Quarkus uses the SmallRye Reactive Messaging project to interact with Apache Kafka.
+
+The Application under Development
+Suppose we are a Movies streaming company, and one use case is to store movies. This could be achieved using a traditional database, that’s true, but given that a great user experience requires real-time interaction, we decided to store them in Kafka.
+
+So there are two services: one that produces an event every time a user stops playing a movie and another service consumes these events and shows/streams them as Server-Side events.
+
+Movie Plays Producer
+Every time a user stops a movie, this service sends an event to the Kafka PlaytimeMovies topic. The event contains the movie ID and the total amount of time watched. For demo purposes, a timer automatically triggers the logic simulating whether a user has watched a movie.
+
+When the service starts, it produces some movies on the Kafka Movies topic.
+
+Development
+
+public class Movie {
+  
+   public int id;
+   public String name;
+   public String director;
+   public String genre;
+ 
+   public Movie(int id, String name, String director, String genre) {
+       this.id = id;
+       this.name = name;
+       this.director = director;
+       this.genre = genre;
+   }
+}
+
+public class PlayedMovie {
+
+   public int id;
+   public long duration;
+ 
+   public MoviePlayed(int id, long duration) {
+       this.id = id;
+       this.duration = duration;
+   }
+}
+
+A played movie contains an id referring to the identifier of the played movie and the duration that the user has been watching the movie.
+
+We will need a new class named MovieKafkaGenerator that has the responsibility of storing movies into a Kafka topic and simulating played movies.
+
+Two classes are initially required to start emitting events to a topic; one is the annotation, @Outgoing, used to specify where to send the events in the form of a channel that will be configured to point to the Kafka Movies topic, and Record class, representing a wrapper of the event where the key and value are specified.
+
+Now let’s create the MovieKafkaGenerator class to produce the movies into the Kafka Movies topic.

@@ -963,7 +963,7 @@ public class BlockingEventLoopThread {
 }
 
 After running this code, you get response after 1000ms without any warning or error
-now i am going to increate time.
+now i am going to increase time.
 
 
 package com.ibm.rest.api.threading;
